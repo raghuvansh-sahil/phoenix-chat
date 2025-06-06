@@ -10,6 +10,7 @@
 #include <arpa/inet.h>  
 
 #include "../common/utils.h"
+#include "command_parser.h"
 
 #define PORT "21111"
 #define BACKLOG 50
@@ -128,7 +129,11 @@ void get_connecting_sockets(int sockfd, fd_set *master, int *fdmax) {
                         // process the received message
                         printf("server: received '%s' from socket %d\n", buf, i);
 
-                        // Here you can add code to handle the message, e.g., broadcast it to other clients
+                        Command *command = parse_command(buf);
+                        printf ("server: parsed command: arg1='%s', arg2='%s', arg3='%s'\n", 
+                               command->arg1 ? command->arg1 : "NULL", 
+                               command->agr2 ? command->agr2 : "NULL", 
+                               command->agr3 ? command->agr3 : "NULL");
                     }
                 }
             }
