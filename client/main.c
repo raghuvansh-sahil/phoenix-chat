@@ -1,15 +1,27 @@
+#include "../common/utils.h"
 #include "client.h"
 
 int main(void) {
-    int sockfd;
+    char buf[2048] = "";
+    int clientSocket;
 
-    // Connect to the server
-    connect_to_server(&sockfd);
+    connect_to_server(&clientSocket);
 
-    // Here you can add code to send/receive messages using sockfd
+    while (1) {
+        printf("> ");
+        fflush(stdout);
 
-    // Close the socket when done
-    close(sockfd);
-    
+        if (fgets(buf, sizeof(buf), stdin) == NULL)
+            break;
+
+        buf[strcspn(buf, "\n")] = '\0';
+
+        if (strcmp(buf, "/exit") == 0)
+            break;
+
+        send_message(clientSocket, buf);
+    }
+
+    close(clientSocket);
     return 0;
 }

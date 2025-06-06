@@ -52,4 +52,8 @@ void connect_to_server(int *sockfd) {
     printf("client: connecting to %s\n", s);
 
     freeaddrinfo(servinfo); 
+
+    char buf[1024];
+    receive_message(*sockfd, buf, sizeof buf); 
+    printf("%s", buf);
 }

@@ -13,6 +13,6 @@
 #include <arpa/inet.h>   // Functions for IP address conversion, like inet_ntop, inet_pton.
 
 void get_listening_socket(int *sockfd);
-void get_connecting_sockets(int sockfd, int *new_fd);
+void get_connecting_sockets(int sockfd, fd_set *master, int *fdmax);
 
 #endif
