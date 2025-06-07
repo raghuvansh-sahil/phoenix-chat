@@ -3,10 +3,11 @@
 
 typedef struct command {
     char *arg1;
-    char *agr2;
-    char *agr3;
+    char *arg2;
+    char *arg3;
 } Command;
 
-Command *parse_command(char *input);
+Command *parse_input(const char *input);
+void free_command(Command *cmd);
 
 #endif 

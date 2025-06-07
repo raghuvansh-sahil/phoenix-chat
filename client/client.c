@@ -9,12 +9,12 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "../common/utils.h"
+#include "utils.h"
 
 #define PORT "21111"
 #define IPADDRESS "192.168.31.129"
 
-void connect_to_server(int *sockfd) {
+void connect_to_server(int *clientSocket) {
     struct addrinfo hints, *servinfo, *p;
     int rv;
     char s[INET6_ADDRSTRLEN];
@@ -29,13 +29,13 @@ void connect_to_server(int *sockfd) {
     }
 
     for (p = servinfo; p != NULL; p = p->ai_next) {
-        if ((*sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
+        if ((*clientSocket = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
             perror("client: socket");
             continue;
         }
 
-        if (connect(*sockfd, p->ai_addr, p->ai_addrlen) == -1) {
-            close(*sockfd);
+        if (connect(*clientSocket, p->ai_addr, p->ai_addrlen) == -1) {
+            close(*clientSocket);
             perror("client: connect");
             continue;
         }
@@ -54,6 +54,6 @@ void connect_to_server(int *sockfd) {
     freeaddrinfo(servinfo); 
 
     char buf[1024];
-    receive_message(*sockfd, buf, sizeof buf); 
+    receive_message(*clientSocket, buf, sizeof buf); 
     printf("%s", buf);
 }

@@ -2,7 +2,7 @@
 CC = gcc
 
 # Compiler flags
-CFLAGS = 
+CFLAGS = -I../common
 
 # Source files
 SRCS = main.c client.c ../common/utils.c

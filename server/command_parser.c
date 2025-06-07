@@ -1,57 +1,50 @@
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
-typedef struct {
+typedef struct command {
     char *arg1;
     char *arg2;
     char *arg3;
 } Command;
 
-Command *parse_command(const char *input) {
+Command *parse_input(char *input) {
     Command *cmd = malloc(sizeof(Command));
     if (!cmd) {
-        perror("malloc");
+        perror("[SERVER] failed to allocate command");
         return NULL;
     }
 
-    // Make a mutable copy of input
     char *copy = strdup(input);
     if (!copy) {
-        perror("strdup");
+        perror("[SERVER] failed to duplicate command");
         free(cmd);
         return NULL;
     }
 
-    char *token = strtok(copy, " ");
-    if (token) cmd->arg1 = strdup(token); else cmd->arg1 = NULL;
+    char *arg1 = strtok(copy, " ");
+    if (arg1) cmd->arg1 = strdup(arg1); else cmd->arg1 = NULL;
 
-    token = strtok(NULL, " ");
-    if (token) cmd->arg2 = strdup(token); else cmd->arg2 = NULL;
+    char *arg2 = strtok(NULL, " ");
+    if (arg2) cmd->arg2 = strdup(arg2); else cmd->arg2 = NULL;
 
-    // Get the position where arg3 starts
     if (cmd->arg1 && cmd->arg2) {
-        // Find where the third argument starts in the original input
-        const char *third_start = input;
+        char *arg3 = input;
 
-        // Skip over arg1
-        third_start += strlen(cmd->arg1);
-        while (*third_start == ' ') third_start++; // skip spaces
+        arg3 += strlen(cmd->arg1);
+        while (*arg3 == ' ') arg3++; 
 
-        // Skip over arg2
-        third_start += strlen(cmd->arg2);
-        while (*third_start == ' ') third_start++; // skip spaces
+        arg3 += strlen(cmd->arg2);
+        while (*arg3 == ' ') arg3++;
 
-        // Now third_start points to the start of arg3
-        if (*third_start)
-            cmd->arg3 = strdup(third_start);
-        else
-            cmd->arg3 = NULL;
-    } else {
+        if (*arg3) cmd->arg3 = strdup(arg3); else cmd->arg3 = NULL;
+    } 
+    else {
         cmd->arg3 = NULL;
     }
 
     free(copy);
+    
     return cmd;
 }
 
@@ -59,5 +52,6 @@ void free_command(Command *cmd) {
     free(cmd->arg1);
     free(cmd->arg2);
     free(cmd->arg3);
+    
     free(cmd);
 }

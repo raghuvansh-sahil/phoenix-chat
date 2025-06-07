@@ -2,10 +2,10 @@
 CC = gcc
 
 # Compiler flags
-CFLAGS = 
+CFLAGS = -I../common -Wall -Wextra -Wunused-macros
 
 # Source files
-SRCS = main.c server.c ../common/utils.c command_parser.c
+SRCS = main.c server.c ../common/utils.c command_parser.c hashing.c user_handler.c client_handler.c message.c 
 
 # Object files
 OBJS = $(SRCS:.c=.o)

@@ -1,23 +1,21 @@
 #include <stdio.h>       
 #include <stdlib.h>
-#include <unistd.h>    
-#include <errno.h>     
+#include <unistd.h>     
 #include <string.h>      
-#include <sys/types.h>   
-#include <sys/socket.h> 
-#include <netinet/in.h>  
 #include <netdb.h>       
-#include <arpa/inet.h>  
 
-#include "../common/utils.h"
+#include "utils.h"
+#include "message.h"
+#include "user_handler.h"
 #include "command_parser.h"
+#include "client_handler.h"
 
 #define PORT "21111"
 #define BACKLOG 50
 
 char *welcome_msg = "\nWelcome to PhoenixChat. Please authenticate using /connect <username>\n";
 
-void get_listening_socket(int *sockfd) {
+void get_listening_socket(int *listening_socket) {
     struct addrinfo hints, *servinfo, *p;
     int yes = 1;
     int rv;
@@ -28,24 +26,25 @@ void get_listening_socket(int *sockfd) {
     hints.ai_flags = AI_PASSIVE; 
     
     if ((rv = getaddrinfo(NULL, PORT, &hints, &servinfo)) != 0) {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+        fprintf(stderr, "[SERVER] getaddrinfo: %s\n", gai_strerror(rv));
         exit(EXIT_FAILURE);
     }
 
     for (p = servinfo; p != NULL; p = p->ai_next) {
-        if ((*sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
-            perror("server: socket");
+        if ((*listening_socket = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
+            perror("[SERVER] socket");
             continue;
         }
 
-        if (setsockopt(*sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
-            perror("setsockopt");
-            exit(EXIT_FAILURE);
+        if (setsockopt(*listening_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
+            close(*listening_socket);
+            perror("[SERVER] setsockopt");
+            continue;
         }
 
-        if (bind(*sockfd, p->ai_addr, p->ai_addrlen) == -1) {
-            close(*sockfd);
-            perror("server: bind");
+        if (bind(*listening_socket, p->ai_addr, p->ai_addrlen) == -1) {
+            close(*listening_socket);
+            perror("[SERVER] bind");
             continue;
         }
 
@@ -53,87 +52,86 @@ void get_listening_socket(int *sockfd) {
     }
 
     if (p == NULL) {
-        fprintf(stderr, "server: failed to bind\n");
+        fprintf(stderr, "[SERVER] Failed to bind any address.\n");
+        freeaddrinfo(servinfo);
         exit(EXIT_FAILURE);
     }
 
     freeaddrinfo(servinfo);
 }
 
-void get_connecting_sockets(int sockfd, fd_set *master, int *fdmax) {
+void get_connecting_sockets(int listening_socket, fd_set *master, int *max_fd, User *logged_users[]) {
     fd_set read_fds;
-    int new_fd;
-    struct sockaddr_storage their_addr;
-    socklen_t sin_size;
-
-    char buf[2048];
-    int bytesReceived;
-
-    int i, j;
-    char s[INET6_ADDRSTRLEN];
-
-    FD_ZERO(master);
     FD_ZERO(&read_fds);
 
-    if (listen(sockfd, BACKLOG) == -1) {
-        perror("listen");
+    if (listen(listening_socket, BACKLOG) == -1) {
+        perror("[SERVER] listen");
+        close(listening_socket);
         exit(EXIT_FAILURE);
     }
 
-    FD_SET(sockfd, master);
-    *fdmax = sockfd; 
+    FD_SET(listening_socket, master);
+    *max_fd = listening_socket; 
 
-    printf("server: waiting for connections...\n");
+    log_event("INFO", "Server started.");
+
+    struct sockaddr_storage client_addr;
+    char client_address[INET6_ADDRSTRLEN];
 
     for (;;) {
         read_fds = *master;
-        if (select(*fdmax + 1, &read_fds, NULL, NULL, NULL) == -1) {
-            perror("select");
+        if (select(*max_fd + 1, &read_fds, NULL, NULL, NULL) == -1) {
+            perror("[SERVER] select");
             exit(EXIT_FAILURE);
         }
 
-        for (i = 0; i <= *fdmax; ++i) {
+        for (int i = 0; i <= *max_fd; ++i) {
             if (FD_ISSET(i, &read_fds)) {
-                if (i == sockfd) {
-                    // handle new connections
-                    sin_size = sizeof their_addr;
-                    new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
-                    if (new_fd == -1) {
-                        perror("accept");
+                if (i == listening_socket) { // handle new connections
+                    socklen_t sin_size = sizeof client_addr;
+                    int client_socket = accept(listening_socket, (struct sockaddr *)&client_addr, &sin_size);
+
+                    if (client_socket == -1) {
+                        perror("[SERVER] accept");
                     }
                     else {
-                        FD_SET(new_fd, master);
-                        if (new_fd > *fdmax) {
-                            *fdmax = new_fd;  
+                        FD_SET(client_socket, master);
+                        if (client_socket > *max_fd) {
+                            *max_fd = client_socket;  
                         }
-                        inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), s, sizeof s);
-                        printf("server: new connection from %s on socket %d\n", s, new_fd);
+                        inet_ntop(client_addr.ss_family, get_in_addr((struct sockaddr *)&client_addr), client_address, sizeof client_address);
+                        
+                        char message[1024];
+                        snprintf(message, sizeof message, "'%s' connected from socket %d.", client_address, client_socket);
+                        log_event("CONNECT", message);
 
-                        // Send welcome message to the new client
-                        send_message(new_fd, welcome_msg);
+                        send_message(client_socket, welcome_msg);
                     }
                 }
-                else {
-                    // handle data from a client
+                else {  // handle data from a client
+                    int bytesReceived;
+                    char buf[2048];
+
                     if ((bytesReceived = receive_message(i, buf, sizeof buf)) <= 0) {
-                        if (bytesReceived == 0) {
-                            // connection closed
-                            printf("server: socket %d hung up\n", i);
-                        } else {
-                            perror("recv");
+                        if (bytesReceived == 0) {  // connection closed
+                            char message[1024];
+                            snprintf(message, sizeof message, "Socket %d hung up.", i);
+                            log_event("DISCONNECT", message);
+                        } 
+                        else {
+                            perror("[SERVER] recv");
                         }
+
                         close(i);
                         FD_CLR(i, master);
                     } 
                     else {
-                        // process the received message
-                        printf("server: received '%s' from socket %d\n", buf, i);
+                        Command *cmd = parse_input(buf);
 
-                        Command *command = parse_command(buf);
-                        printf ("server: parsed command: arg1='%s', arg2='%s', arg3='%s'\n", 
-                               command->arg1 ? command->arg1 : "NULL", 
-                               command->agr2 ? command->agr2 : "NULL", 
-                               command->agr3 ? command->agr3 : "NULL");
+                        login_user(cmd, i, logged_users);
+                        if (find_user(logged_users, "raghuvansh-sahil")) printf("Found\n");
+
+                        free_command(cmd);
                     }
                 }
             }
