@@ -104,18 +104,28 @@ void get_connecting_sockets(int listening_socket, fd_set *master, int *max_fd, U
                         char message[1024];
                         snprintf(message, sizeof message, "'%s' connected from socket %d.", client_address, client_socket);
                         log_event("CONNECT", message);
-
-                        send_message(client_socket, welcome_msg);
+                        
+                        User *client = create_user("", client_socket);
+                        send_message(client, welcome_msg);
+                        free_user(client);
                     }
                 }
                 else {  // handle data from a client
+                    int temp_user = 0;
+
+                    User *client = find_socket(logged_users, i);
+                    if (!client) {
+                        temp_user++;
+                        client = create_user("", i);
+                    }
+
                     int bytesReceived;
                     char buf[2048];
 
-                    if ((bytesReceived = receive_message(i, buf, sizeof buf)) <= 0) {
+                    if ((bytesReceived = receive_message(client, buf, sizeof buf)) <= 0) {
                         if (bytesReceived == 0) {  // connection closed
                             char message[1024];
-                            snprintf(message, sizeof message, "Socket %d hung up.", i);
+                            snprintf(message, sizeof message, "User '%s' hung up.", client->username);
                             log_event("DISCONNECT", message);
                         } 
                         else {
@@ -127,10 +137,12 @@ void get_connecting_sockets(int listening_socket, fd_set *master, int *max_fd, U
                     } 
                     else {
                         Command *cmd = parse_input(buf);
-
-                        handle_client(cmd, i, logged_users);
-
+                        handle_client(cmd, client, logged_users);
                         free_command(cmd);
+                    }
+
+                    if (temp_user) {
+                        free_user(client);
                     }
                 }
             }

@@ -8,20 +8,20 @@
 #include "command_parser.h"
 #include "message.h"
 
-void login_user(Command *cmd, int client_socket, User *logged_users[]);
-void private_message(Command *cmd, int client_socket, User *logged_users[]);
-void list_logged_user(Command *cmd, int client_socket, User *logged_users[]);
+void login_user(Command *cmd, User *client, User *logged_users[]);
+void private_message(Command *cmd, User *sender, User *logged_users[]);
+void list_logged_user(Command *cmd, User* client, User *logged_users[]);
 
-void handle_client(Command *cmd, int client_socket, User *logged_users[]) {
+void handle_client(Command *cmd, User *client, User *logged_users[]) {
     char *tag = cmd->arg1;
     
-    if (strcmp(tag, "/login") == 0) login_user(cmd, client_socket, logged_users);
-    else if (strcmp(tag, "/list") == 0) list_logged_user(cmd, client_socket, logged_users);
-    else if (strcmp(tag, "/send") == 0) private_message(cmd, client_socket, logged_users); 
+    if (strcmp(tag, "/login") == 0) login_user(cmd, client, logged_users);
+    else if (strcmp(tag, "/list") == 0) list_logged_user(cmd, client, logged_users);
+    else if (strcmp(tag, "/send") == 0) private_message(cmd, client, logged_users); 
 }
 
-void login_user(Command *cmd, int client_socket, User *logged_users[]) {
-    User *user = create_user(cmd->arg2, client_socket);
+void login_user(Command *cmd, User *client, User *logged_users[]) {
+    User *user = create_user(strdup(cmd->arg2), client->socket);
     insert_user(logged_users, user);
 
     char message[1024];
@@ -29,15 +29,15 @@ void login_user(Command *cmd, int client_socket, User *logged_users[]) {
     log_event("LOGIN", message);
 }
 
-void private_message(Command *cmd, int client_socket, User *logged_users[]) {
+void private_message(Command *cmd, User *sender, User *logged_users[]) {
     char *username = strdup(cmd->arg2);
     char *message = strdup(cmd->arg3);
 
-    User *receiver = find_user(logged_users, username);
+    User *receiver = find_username(logged_users, username);
     if (!receiver) {
         char message[1024];
         snprintf(message, sizeof message, "User '%s' is not connected to server.", username);
-        send_message(client_socket, message);
+        send_message(sender, message);
 
         return;
     }
@@ -53,11 +53,11 @@ void private_message(Command *cmd, int client_socket, User *logged_users[]) {
     strftime(timestamp, 20, "%Y-%m-%d %H:%M:%S", tm_info);
 
     char encapsulated_message[2048];
-    snprintf(encapsulated_message, sizeof encapsulated_message, "[%s] %d -> %s", timestamp, client_socket, message);
-    send_message(receiver->socket, encapsulated_message);
+    snprintf(encapsulated_message, sizeof encapsulated_message, "[%s] %s -> %s", timestamp, sender->username, message);
+    send_message(receiver, encapsulated_message);
 }
 
-void list_logged_user(Command *cmd, int client_socket, User *logged_users[]) {
+void list_logged_user(Command *cmd, User *client, User *logged_users[]) {
     char message[2048];
     message[0] = '\0';
     
@@ -65,6 +65,11 @@ void list_logged_user(Command *cmd, int client_socket, User *logged_users[]) {
         User *current = logged_users[i];
 
         while (current) {
+            if (current->username == NULL) { 
+                current = current->next;
+                continue;
+            }
+
             if (strlen(message) + strlen(current->username) + 2 >= sizeof(message)) {
                 break;
             }
@@ -75,10 +80,11 @@ void list_logged_user(Command *cmd, int client_socket, User *logged_users[]) {
             current = current -> next;
         }
     }
+
     if (strlen(message) == 0) {
-        send_message(client_socket, "No users are currently logged in.\n");
+        send_message(client, "No users are currently logged in.\n");
         return;
     }
 
-    send_message(client_socket, message);
+    send_message(client, message);
 }

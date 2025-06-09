@@ -29,7 +29,7 @@ void insert_user(User *hash_table[], User *user) {
     hash_table[index] = user;
 }
 
-User *find_user(User *hash_table[], const char *username) {
+User *find_username(User *hash_table[], const char *username) {
     unsigned long index = hash_function(username);
     
     User *current = hash_table[index];
@@ -38,6 +38,21 @@ User *find_user(User *hash_table[], const char *username) {
             return current;
         }
         current = current->next;
+    }
+
+    return NULL;
+}
+
+User *find_socket(User *hash_table[], int socket) {
+    for (int i = 0; i < HASHTABLE_SIZE; ++i) {
+        User *current = hash_table[i];
+
+        while (current) {
+            if (current->socket == socket) {
+                return current;
+            }
+            current = current->next;
+        }
     }
 
     return NULL;
