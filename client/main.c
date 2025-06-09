@@ -1,4 +1,8 @@
-#include "../common/utils.h"
+#include <stdio.h>
+#include <unistd.h>
+#include <string.h>
+
+#include "utils.h"
 #include "client.h"
 
 int main(void) {
@@ -20,6 +24,7 @@ int main(void) {
             break;
 
         send_message(clientSocket, buf);
+        look_for_data(clientSocket);
     }
 
     close(clientSocket);

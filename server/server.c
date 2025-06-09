@@ -128,8 +128,7 @@ void get_connecting_sockets(int listening_socket, fd_set *master, int *max_fd, U
                     else {
                         Command *cmd = parse_input(buf);
 
-                        login_user(cmd, i, logged_users);
-                        if (find_user(logged_users, "raghuvansh-sahil")) printf("Found\n");
+                        handle_client(cmd, i, logged_users);
 
                         free_command(cmd);
                     }
