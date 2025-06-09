@@ -5,11 +5,12 @@
 #include <netdb.h>
 
 #include "utils.h"
+#include "user_handler.h"
 
 #define PORT "21111"
 #define IPADDRESS "192.168.31.129"
 
-void connect_to_server(int *client_socket) {
+User *connect_to_server(int *client_socket) {
     struct addrinfo hints, *servinfo, *p;
     int rv;
     char s[INET6_ADDRSTRLEN];
@@ -47,22 +48,26 @@ void connect_to_server(int *client_socket) {
     
     freeaddrinfo(servinfo); 
 
+    User *client = create_user("", *client_socket);
+
     char buf[1024];
-    receive_message(*client_socket, buf, sizeof buf); 
+    receive_message(client, buf, sizeof buf); 
     printf("%s", buf);
+
+    return client;
 }
 
-void look_for_data(int client_socket) {
+void look_for_data(User *client) {
     fd_set read_fds;
     FD_ZERO(&read_fds);
 
     struct timeval timeout;
-    timeout.tv_sec = 2;
+    timeout.tv_sec = 1;
     timeout.tv_usec = 0;
 
-    FD_SET(client_socket, &read_fds);
+    FD_SET(client->socket, &read_fds);
 
-    int activity = select(client_socket + 1, &read_fds, NULL, NULL, &timeout);
+    int activity = select(client->socket + 1, &read_fds, NULL, NULL, &timeout);
     if (activity == -1) {
         perror("[CLIENT] select");
         return;
@@ -71,9 +76,9 @@ void look_for_data(int client_socket) {
         return;
     }
 
-    if (FD_ISSET(client_socket, &read_fds)) {
+    if (FD_ISSET(client->socket, &read_fds)) {
         char buf[2048];
-        int bytesReceived = receive_message(client_socket, buf, sizeof buf);
+        int bytesReceived = receive_message(client, buf, sizeof buf);
         
         if (bytesReceived > 0) {
             printf("%s\n", buf);

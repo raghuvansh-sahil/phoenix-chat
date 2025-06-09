@@ -5,7 +5,7 @@ CC = gcc
 CFLAGS = -I../common
 
 # Source files
-SRCS = main.c client.c ../common/utils.c
+SRCS = main.c client.c ../common/utils.c ../common/user_handler.c
 
 # Object files
 OBJS = $(SRCS:.c=.o)

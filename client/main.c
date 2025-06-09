@@ -4,13 +4,13 @@
 
 #include "utils.h"
 #include "client.h"
+#include "user_handler.h"
 
 int main(void) {
     char buf[2048] = "";
-    int clientSocket;
+    int client_socket;
 
-    connect_to_server(&clientSocket);
-
+    User *client = connect_to_server(&client_socket);
     while (1) {
         printf("> ");
         fflush(stdout);
@@ -23,10 +23,11 @@ int main(void) {
         if (strcmp(buf, "/exit") == 0)
             break;
 
-        send_message(clientSocket, buf);
-        look_for_data(clientSocket);
+        send_message(client, buf);
+        look_for_data(client);
     }
-
-    close(clientSocket);
+    close(client_socket);
+    free_user(client);
+    
     return 0;
 }
