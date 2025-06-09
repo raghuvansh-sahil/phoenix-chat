@@ -10,11 +10,13 @@
 
 void login_user(Command *cmd, int client_socket, User *logged_users[]);
 void private_message(Command *cmd, int client_socket, User *logged_users[]);
+void list_logged_user(Command *cmd, int client_socket, User *logged_users[]);
 
 void handle_client(Command *cmd, int client_socket, User *logged_users[]) {
     char *tag = cmd->arg1;
     
     if (strcmp(tag, "/login") == 0) login_user(cmd, client_socket, logged_users);
+    else if (strcmp(tag, "/list") == 0) list_logged_user(cmd, client_socket, logged_users);
     else if (strcmp(tag, "/send") == 0) private_message(cmd, client_socket, logged_users); 
 }
 
@@ -51,6 +53,32 @@ void private_message(Command *cmd, int client_socket, User *logged_users[]) {
     strftime(timestamp, 20, "%Y-%m-%d %H:%M:%S", tm_info);
 
     char encapsulated_message[2048];
-    snprintf(encapsulated_message, sizeof encapsulated_message, "[%s] %d -> %s\n", timestamp, client_socket, message);
+    snprintf(encapsulated_message, sizeof encapsulated_message, "[%s] %d -> %s", timestamp, client_socket, message);
     send_message(receiver->socket, encapsulated_message);
+}
+
+void list_logged_user(Command *cmd, int client_socket, User *logged_users[]) {
+    char message[2048];
+    message[0] = '\0';
+    
+    for (int i = 0; i < HASHTABLE_SIZE; ++i) {
+        User *current = logged_users[i];
+
+        while (current) {
+            if (strlen(message) + strlen(current->username) + 2 >= sizeof(message)) {
+                break;
+            }
+
+            strcat(message, current->username);
+            strcat(message, "\n");
+
+            current = current -> next;
+        }
+    }
+    if (strlen(message) == 0) {
+        send_message(client_socket, "No users are currently logged in.\n");
+        return;
+    }
+
+    send_message(client_socket, message);
 }
