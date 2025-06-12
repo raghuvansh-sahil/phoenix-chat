@@ -9,14 +9,16 @@
 #include "message.h"
 
 void login_user(Command *cmd, User *client, User *logged_users[]);
-void private_message(Command *cmd, User *sender, User *logged_users[]);
-void list_logged_user(Command *cmd, User* client, User *logged_users[]);
+void logout_user(User *client, User *logged_users[]);
+void private_message(Command* cmd, User *sender, User *logged_users[]);
+void list_logged_user(User* client, User *logged_users[]);
 
 void handle_client(Command *cmd, User *client, User *logged_users[]) {
     char *tag = cmd->arg1;
     
     if (strcmp(tag, "/login") == 0) login_user(cmd, client, logged_users);
-    else if (strcmp(tag, "/list") == 0) list_logged_user(cmd, client, logged_users);
+    else if (strcmp(tag, "/logout") == 0) logout_user(client, logged_users);
+    else if (strcmp(tag, "/list") == 0) list_logged_user(client, logged_users);
     else if (strcmp(tag, "/send") == 0) private_message(cmd, client, logged_users); 
 }
 
@@ -27,6 +29,19 @@ void login_user(Command *cmd, User *client, User *logged_users[]) {
     char message[1024];
     snprintf(message, sizeof message, "User '%s' logged in from socket %d.", user->username, user->socket);
     log_event("LOGIN", message);
+}
+
+void logout_user(User *client, User *logged_users[]) {
+    User *temp = create_user("", client->socket);
+
+    int deleted;
+    if ((deleted = delete_user(logged_users, client)) == 0) {
+        client = temp;
+        send_message(client, "Logout failed: You were not logged in.");
+        return;
+    }
+    client = temp;
+    send_message(client, "You have been successfully logged out. See you soon!");
 }
 
 void private_message(Command *cmd, User *sender, User *logged_users[]) {
@@ -57,7 +72,7 @@ void private_message(Command *cmd, User *sender, User *logged_users[]) {
     send_message(receiver, encapsulated_message);
 }
 
-void list_logged_user(Command *cmd, User *client, User *logged_users[]) {
+void list_logged_user(User *client, User *logged_users[]) {
     char message[2048];
     message[0] = '\0';
     

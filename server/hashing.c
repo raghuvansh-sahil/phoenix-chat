@@ -25,8 +25,34 @@ unsigned long hash_function(const char *username) {
 
 void insert_user(User *hash_table[], User *user) {
     unsigned long index = hash_function(user->username);
+
     user->next = hash_table[index];
     hash_table[index] = user;
+}
+
+int delete_user(User *hash_table[], User *user) {
+    unsigned long index = hash_function(user->username);
+    
+    User *previous = NULL;
+    User *current = hash_table[index];
+    while (current) {
+        if (strcmp(current->username, user->username) == 0) {
+            if (previous == NULL) {
+                hash_table[index] = current->next;
+            }
+            else {
+                previous->next = current->next;
+            }
+            current->next = NULL;
+
+            free_user(current);
+            return 1;
+        }
+        previous = current;
+        current = current->next;
+    }
+
+    return 0;
 }
 
 User *find_username(User *hash_table[], const char *username) {
