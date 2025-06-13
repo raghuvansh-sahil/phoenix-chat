@@ -16,6 +16,7 @@
 #include "hashing.h"
 #include "input_parser.h"
 #include "user_handler.h"
+#include "file_handler.h"
 
 #define PORT "21111"
 #define BACKLOG 50
@@ -49,7 +50,7 @@ static void handle_new_connections(int listening_socket, fd_set *master, int *ma
     }
 }
 
-static void handle_client_data(int client_socket, fd_set *master, User *logged_users[]) {
+static void handle_client_data(int client_socket, fd_set *master, User *users[]) {
     User *client = create_user_with_socket(client_socket);
     char buf[1024];
 
@@ -66,7 +67,7 @@ static void handle_client_data(int client_socket, fd_set *master, User *logged_u
     } 
     else {
         Command *command = parse_input(buf);
-        handle_user(command, client, logged_users);
+        handle_user(command, client, users);
         free_command(command);
     }
 
@@ -133,10 +134,11 @@ void run_server(int listening_socket, volatile sig_atomic_t *server_running) {
     FD_SET(listening_socket, &master);
     int max_fd = listening_socket; 
 
-    User *logged_users[HASHTABLE_SIZE];
-    init_hash_table(logged_users);
+    User *users[HASHTABLE_SIZE];
+    init_hash_table(users);
+    fetch_users_from_database(users);
+
     log_event("INFO", "Server initiated.");
-    
     while (*server_running) {
         read_fds = master;
 
@@ -151,7 +153,7 @@ void run_server(int listening_socket, volatile sig_atomic_t *server_running) {
                     handle_new_connections(listening_socket, &master, &max_fd);
                 }
                 else {
-                    handle_client_data(i, &master, logged_users);
+                    handle_client_data(i, &master, users);
                 }
             }
         }
@@ -161,6 +163,7 @@ void run_server(int listening_socket, volatile sig_atomic_t *server_running) {
         if (FD_ISSET(i, &master)) close(i);
     }
 
-    clear_hash_table(logged_users);
+    clear_hash_table(users);
+    
     log_event("INFO", "Server terminated.");
 }

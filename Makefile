@@ -5,8 +5,8 @@ LDFLAGS =
 COMMON_SRCS = common/user.c common/utils.c
 
 # Server
-SERVER_SRCS = server/command.c server/hashing.c server/input_parser.c server/main.c \
-              server/message.c server/server.c server/user_handler.c \
+SERVER_SRCS = server/command.c server/file_handler.c server/hashing.c server/input_parser.c \
+              server/main.c server/message.c server/server.c server/user_handler.c \
 			  $(COMMON_SRCS)
 SERVER_OBJS = $(SERVER_SRCS:.c=.o)
 SERVER_EXEC = server_app

@@ -37,35 +37,6 @@ void insert_user(User *hash_table[], User *user) {
     hash_table[index] = user;
 }
 
-User *delete_user(User *hash_table[], User *user) {
-    if (!hash_table || !user) {
-        return NULL;
-    }
-
-    int socket = get_socket(user);
-
-    for (int i = 0; i < HASHTABLE_SIZE; ++i) {
-        User *previous = NULL;
-        User *current = hash_table[i];
-
-        while (current) {
-            if (get_socket(current) == socket) {
-                if (previous == NULL) {
-                    hash_table[i] = get_next_user(current);
-                }
-                else {
-                    set_next_user(previous, get_next_user(current));
-                }
-                set_next_user(current, NULL);
-
-                return current;
-            }
-        }
-    }
-
-    return NULL;
-}
-
 User *find_user_by_username(User *hash_table[], const char *username) {
     if (!hash_table || !username) {
         return NULL;

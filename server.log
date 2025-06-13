@@ -1,0 +1,17 @@
+[2025-06-14 01:31:37] [INFO] Server initiated.
+[2025-06-14 01:32:05] [INFO] SIGINT received. Preparing to shut down server.
+[2025-06-14 01:32:05] [INFO] Server terminated.
+[2025-06-14 01:32:33] [INFO] Server initiated.
+[2025-06-14 01:32:38] [CONNECT] '::ffff:192.168.31.129' connected from socket 5.
+[2025-06-14 01:32:48] [LOGIN] User 'raghuvansh-sahil' logged in.
+[2025-06-14 01:33:19] [LOGOUT] User 'raghuvansh-sahil' logged out.
+[2025-06-14 01:33:19] [DISCONNECT] User from socket 5 hung up.
+[2025-06-14 01:33:24] [INFO] SIGINT received. Preparing to shut down server.
+[2025-06-14 01:33:24] [INFO] Server terminated.
+[2025-06-14 01:58:14] [INFO] Server initiated.
+[2025-06-14 01:58:18] [CONNECT] '::ffff:192.168.31.129' connected from socket 5.
+[2025-06-14 01:58:49] [LOGIN] User 'raghuvansh-sahil' logged in.
+[2025-06-14 01:59:22] [LOGOUT] User 'raghuvansh-sahil' logged out.
+[2025-06-14 01:59:22] [DISCONNECT] User from socket 5 hung up.
+[2025-06-14 01:59:28] [INFO] SIGINT received. Preparing to shut down server.
+[2025-06-14 01:59:28] [INFO] Server terminated.

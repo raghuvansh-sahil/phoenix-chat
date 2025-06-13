@@ -9,34 +9,47 @@
 #include "message.h"
 #include "user_handler.h"
 
-static void login_user(const Command *command, User *user, User *logged_users[]) {
+static void login_user(const Command *command, User *user, User *users[]) {
     const char *username = get_second_token(command);
+    const char *password = get_third_token(command);
     int socket = get_socket(user);
 
-    if (!username) {
-        const char *msg = "Invalid login format. Usage: /login <username>";
+    if (!username || !password) {
+        const char *msg = "Invalid login format. Usage: /login <username> <password>.";
         send_message(user, msg, strlen(msg) + 1);
         return;
     }
 
-    if (find_user_by_username(logged_users, username)) {
-        const char *message = "Login failed: User already logged in.";
+    User *logging_in = find_user_by_username(users, username);
+    if (!logging_in) {
+        const char *message = "Login failed: User not registered.";
         send_message(user, message, strlen(message) + 1);
         return;
     }
-    insert_user(logged_users, create_user_with_username(username, socket));
-    const char *message = "Login successful. Welcome!";
-    send_message(user, message, strlen(message) + 1);
+
+    if (strcmp(get_password(logging_in), password) == 0) {
+        toggle_login_status(logging_in);
+        set_socket(logging_in, socket);
+
+        const char *message = "Login successful. Welcome!";
+        send_message(user, message, strlen(message) + 1);
+    }
+    else {
+        const char *message = "Login failed: Incorrect password entered!";
+        send_message(user, message, strlen(message) + 1);
+        return;
+    }
 
     char log[1024];
     snprintf(log, sizeof log, "User '%s' logged in.", username);
     log_event("LOGIN", log);
 }
 
-static void logout_user(User *user, User *logged_users[]) {
-    User *to_be_deleted = delete_user(logged_users, user);
+static void logout_user(User *user, User *users[]) {
+    int socket = get_socket(user);
+    User *logging_out = find_user_by_socket(users, socket);
 
-    if (!to_be_deleted) {
+    if (!is_logged_in(logging_out)) {
         const char *message = "Logout failed: You are not logged in.";
         send_message(user, message, strlen(message) + 1);
         return;
@@ -45,13 +58,14 @@ static void logout_user(User *user, User *logged_users[]) {
     send_message(user, message, strlen(message) + 1);
 
     char log[1024];
-    snprintf(log, sizeof log, "User '%s' logged out.", get_username(to_be_deleted));
+    snprintf(log, sizeof log, "User '%s' logged out.", get_username(logging_out));
     log_event("LOGOUT", log);
 
-    free_user(to_be_deleted);
+    toggle_login_status(logging_out);
+    set_socket(logging_out, -1);
 }
 
-static void list_logged_users(User *user, User *logged_users[]) {
+static void list_logged_users(User *user, User *users[]) {
     size_t list_size = 128;
     size_t used = 0;
 
@@ -63,9 +77,14 @@ static void list_logged_users(User *user, User *logged_users[]) {
     list[0] = '\0';
     
     for (int i = 0; i < HASHTABLE_SIZE; ++i) {
-        User *current = logged_users[i];
+        User *current = users[i];
 
         while (current) {
+            if (!is_logged_in(current)) {
+                current = get_next_user(current);
+                continue;
+            }
+
             const char* username = get_username(current);
             size_t length = strlen(username) + 1;
 
@@ -105,9 +124,9 @@ static void list_logged_users(User *user, User *logged_users[]) {
     free(list);
 }
 
-static void private_message(const Command *command, User *user, User *logged_users[]) {
+static void private_message(const Command *command, User *user, User *users[]) {
     int socket = get_socket(user);
-    User *sender = find_user_by_socket(logged_users, socket);
+    User *sender = find_user_by_socket(users, socket);
 
     const char *receiver_username = get_second_token(command);
     const char *message_content = get_third_token(command);
@@ -118,8 +137,8 @@ static void private_message(const Command *command, User *user, User *logged_use
         return;
     }
 
-    User *receiver = find_user_by_username(logged_users, receiver_username);
-    if (!receiver) {
+    User *receiver = find_user_by_username(users, receiver_username);
+    if (get_socket(receiver) == -1) {
         char message[1024];
         snprintf(message, sizeof message, "User '%s' is not connected to server.", receiver_username);
         send_message(sender, message, strlen(message) + 1);
@@ -142,19 +161,19 @@ static void private_message(const Command *command, User *user, User *logged_use
     send_message(receiver, message, strlen(message) + 1);
 }
 
-void handle_user(const Command *command, User *client, User *logged_users[]) {
+void handle_user(const Command *command, User *client, User *users[]) {
     const char *tag = get_first_token(command);
     
     if (strcmp(tag, "/login") == 0) {
-        login_user(command, client, logged_users);
+        login_user(command, client, users);
     }
     else if (strcmp(tag, "/logout") == 0) {
-        logout_user(client, logged_users);
+        logout_user(client, users);
     }
     else if (strcmp(tag, "/list") == 0) {
-        list_logged_users(client, logged_users);
+        list_logged_users(client, users);
     } 
     else if (strcmp(tag, "/send") == 0) {
-        private_message(command, client, logged_users); 
+        private_message(command, client, users); 
     }
 }
