@@ -1,9 +1,9 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
-#include "user_handler.h"
+#include "user.h"
 
 User *connect_to_server(int *client_socket);
-void look_for_data(User *client);
+void poll_server_messages(User *client);
 
 #endif

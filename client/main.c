@@ -1,32 +1,36 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 
+#include "user.h"
 #include "utils.h"
 #include "client.h"
-#include "user_handler.h"
 
 int main(void) {
-    char buf[2048] = "";
-    int client_socket;
+    char buf[1024] = "";
+    int server_socket;
 
-    User *client = connect_to_server(&client_socket);
-    while (1) {
-        printf("> ");
-        fflush(stdout);
-
-        if (fgets(buf, sizeof(buf), stdin) == NULL)
-            break;
-
-        buf[strcspn(buf, "\n")] = '\0';
-
-        if (strcmp(buf, "/exit") == 0)
-            break;
-
-        send_message(client, buf);
-        look_for_data(client);
+    User *client = connect_to_server(&server_socket);
+    if (!client) {
+        exit(EXIT_FAILURE);
     }
-    close(client_socket);
+    while (1) {
+        printf(">> ");
+        //fflush(stdout);
+
+        if (fgets(buf, sizeof(buf), stdin) == NULL) {
+            break;
+        } buf[strcspn(buf, "\n")] = '\0';
+
+        send_message(client, buf, strlen(buf) + 1);
+
+        poll_server_messages(client);
+        if (strcmp(buf, "/logout") == 0) {
+            break;
+        }
+    }
+    close(server_socket);
     free_user(client);
     
     return 0;

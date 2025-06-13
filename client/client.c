@@ -1,18 +1,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <errno.h>
 #include <string.h>
 #include <netdb.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "utils.h"
-#include "user.h"
+#include "client.h"
 
 #define PORT "21111"
 #define IPADDRESS "192.168.31.129"
 
-User *connect_to_server(int *client_socket) {
+User *connect_to_server(int *server_socket) {
     struct addrinfo hints, *servinfo, *p;
     int rv;
+    
     char s[INET6_ADDRSTRLEN];
 
     memset(&hints, 0, sizeof hints);
@@ -21,17 +27,17 @@ User *connect_to_server(int *client_socket) {
 
     if ((rv = getaddrinfo(IPADDRESS, PORT, &hints, &servinfo)) != 0) {
         fprintf(stderr, "[CLIENT] getaddrinfo: %s\n", gai_strerror(rv));
-        exit(EXIT_FAILURE);
+        return NULL;
     }
 
     for (p = servinfo; p != NULL; p = p->ai_next) {
-        if ((*client_socket = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
+        if ((*server_socket = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
             perror("[CLIENT] socket");
             continue;
         }
 
-        if (connect(*client_socket, p->ai_addr, p->ai_addrlen) == -1) {
-            close(*client_socket);
+        if (connect(*server_socket, p->ai_addr, p->ai_addrlen) == -1) {
+            close(*server_socket);
             perror("[CLIENT] connect");
             continue;
         }
@@ -40,24 +46,31 @@ User *connect_to_server(int *client_socket) {
     }
 
     if (p == NULL) {
+        freeaddrinfo(servinfo);
         fprintf(stderr, "[CLIENT] Failed to connect.\n");
-        exit(EXIT_FAILURE);
+        return NULL;
     }
 
     inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr), s, sizeof s);
     
     freeaddrinfo(servinfo); 
 
-    User *client = create_user("", *client_socket);
+    User *client = create_user_with_socket(*server_socket);
 
     char buf[1024];
-    receive_message(client, buf, sizeof buf); 
-    printf("%s\n", buf);
-
-    return client;
+    int bytesReceived = receive_message(client, buf, sizeof buf);
+    if (bytesReceived > 0) {
+        printf("%s\n", buf);
+        return client;
+    }
+    else {
+        fprintf(stderr, "[CLIENT] Failed to receive greeting from server.\n");
+        free_user(client);
+        return NULL;
+    }
 }
 
-void look_for_data(User *client) {
+void poll_server_messages(User *client) {
     fd_set read_fds;
     FD_ZERO(&read_fds);
 
@@ -65,9 +78,11 @@ void look_for_data(User *client) {
     timeout.tv_sec = 1;
     timeout.tv_usec = 0;
 
-    FD_SET(client->socket, &read_fds);
+    int socket = get_socket(client);
 
-    int activity = select(client->socket + 1, &read_fds, NULL, NULL, &timeout);
+    FD_SET(socket, &read_fds);
+
+    int activity = select(socket + 1, &read_fds, NULL, NULL, &timeout);
     if (activity == -1) {
         perror("[CLIENT] select");
         return;
@@ -76,8 +91,8 @@ void look_for_data(User *client) {
         return;
     }
 
-    if (FD_ISSET(client->socket, &read_fds)) {
-        char buf[2048];
+    if (FD_ISSET(socket, &read_fds)) {
+        char buf[1048];
         int bytesReceived = receive_message(client, buf, sizeof buf);
         
         if (bytesReceived > 0) {

@@ -20,7 +20,7 @@ ssize_t send_message(User *user, const char *message, size_t message_size) {
     int socket = get_socket(user);
     
     ssize_t n;
-    while (total < message_size) {
+    while (total < (ssize_t)message_size) {
         n = send(socket, message + total, bytes_left, 0);
         if (n == -1) {
             perror("send");

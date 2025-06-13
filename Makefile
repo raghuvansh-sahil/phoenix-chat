@@ -1,34 +1,38 @@
 CC = gcc
-CFLAGS = -Wall -Wextra  -Icommon -Iserver
+CFLAGS = -Wall -Wextra  -Icommon -Iserver -Iclient
 LDFLAGS =
 
-COMMON_DIR = common
-SERVER_DIR = server
+COMMON_SRCS = common/user.c common/utils.c
 
-COMMON_SRCS = $(COMMON_DIR)/user.c \
-			  $(COMMON_DIR)/utils.c
-SERVER_SRCS = $(SERVER_DIR)/command.c \
-			  $(SERVER_DIR)/hashing.c \
-			  $(SERVER_DIR)/input_parser.c \
-			  $(SERVER_DIR)/main.c \
-			  $(SERVER_DIR)/message.c \
-			  $(SERVER_DIR)/server.c \
-			  $(SERVER_DIR)/user_handler.c 
+# Server
+SERVER_SRCS = server/command.c server/hashing.c server/input_parser.c server/main.c \
+              server/message.c server/server.c server/user_handler.c \
+			  $(COMMON_SRCS)
+SERVER_OBJS = $(SERVER_SRCS:.c=.o)
+SERVER_EXEC = server_app
 
-SRCS = $(COMMON_SRCS) $(SERVER_SRCS)
-OBJS = $(SRCS:.c=.o)
+# Client
+CLIENT_SRCS = client/client.c client/main.c \
+              $(COMMON_SRCS)
+CLIENT_OBJS = $(CLIENT_SRCS:.c=.o)
+CLIENT_EXEC = client_app
 
-TARGET = server_app
+.PHONY: all server client clean
 
-.PHONY: all clean
+all: server client
 
-all: $(TARGET)
+server: $(SERVER_EXEC)
 
-$(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+$(SERVER_EXEC): $(SERVER_OBJS)
+	@$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+client: $(CLIENT_EXEC)
+
+$(CLIENT_EXEC): $(CLIENT_OBJS)
+	@$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	@$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJS) $(TARGET)
+	@rm -f $(SERVER_OBJS) $(SERVER_EXEC) $(CLIENT_OBJS) $(CLIENT_EXEC)
