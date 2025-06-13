@@ -2,17 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "user_handler.h"
+#include "hashing.h"
 
-#define HASHTABLE_SIZE 101
-
-void init_hash_table(User *hash_table[]) {
-    for (int i = 0; i < HASHTABLE_SIZE; ++i) {
-        hash_table[i] = NULL;
-    }
-}
-
-unsigned long hash_function(const char *username) {
+static unsigned long hash_username(const char *username) {
     unsigned long hash = 5381;
     int c;
 
@@ -23,61 +15,88 @@ unsigned long hash_function(const char *username) {
     return hash % HASHTABLE_SIZE;
 }
 
-void insert_user(User *hash_table[], User *user) {
-    unsigned long index = hash_function(user->username);
+void init_hash_table(User *hash_table[]) {
+    if (!hash_table) {
+        return;
+    }
 
-    user->next = hash_table[index];
+    for (int i = 0; i < HASHTABLE_SIZE; ++i) {
+        hash_table[i] = NULL;
+    }
+}
+
+void insert_user(User *hash_table[], User *user) {
+    if (!hash_table || !user) {
+        return;
+    }
+
+    const char *username = get_username(user);
+    unsigned long index = hash_username(username);
+    
+    set_next_user(user, hash_table[index]);
     hash_table[index] = user;
 }
 
-int delete_user(User *hash_table[], User *user) {
-    unsigned long index = hash_function(user->username);
-    
-    User *previous = NULL;
-    User *current = hash_table[index];
-    while (current) {
-        if (strcmp(current->username, user->username) == 0) {
-            if (previous == NULL) {
-                hash_table[index] = current->next;
-            }
-            else {
-                previous->next = current->next;
-            }
-            current->next = NULL;
-
-            free_user(current);
-            return 1;
-        }
-        previous = current;
-        current = current->next;
+User *delete_user(User *hash_table[], User *user) {
+    if (!hash_table || !user) {
+        return NULL;
     }
 
-    return 0;
-}
+    int socket = get_socket(user);
 
-User *find_username(User *hash_table[], const char *username) {
-    unsigned long index = hash_function(username);
-    
-    User *current = hash_table[index];
-    while (current) {
-        if (strcmp(current->username, username) == 0) {
-            return current;
+    for (int i = 0; i < HASHTABLE_SIZE; ++i) {
+        User *previous = NULL;
+        User *current = hash_table[i];
+
+        while (current) {
+            if (get_socket(current) == socket) {
+                if (previous == NULL) {
+                    hash_table[i] = get_next_user(current);
+                }
+                else {
+                    set_next_user(previous, get_next_user(current));
+                }
+                set_next_user(current, NULL);
+
+                return current;
+            }
         }
-        current = current->next;
     }
 
     return NULL;
 }
 
-User *find_socket(User *hash_table[], int socket) {
+User *find_user_by_username(User *hash_table[], const char *username) {
+    if (!hash_table || !username) {
+        return NULL;
+    }
+
+    unsigned long index = hash_username(username);
+    
+    User *current = hash_table[index];
+    while (current) {
+        if (strcmp(get_username(current), username) == 0) {
+            return current;
+        }
+        current = get_next_user(current);
+    }
+
+    return NULL;
+}
+
+User *find_user_by_socket(User *hash_table[], int socket) {
+    if (!hash_table) {
+        return NULL;
+    }
+
     for (int i = 0; i < HASHTABLE_SIZE; ++i) {
         User *current = hash_table[i];
 
         while (current) {
-            if (current->socket == socket) {
+            if (get_socket(current) == socket) {
                 return current;
             }
-            current = current->next;
+            current = get_next_user(current);
         }
     }
 
@@ -85,12 +104,19 @@ User *find_socket(User *hash_table[], int socket) {
 }
 
 void clear_hash_table(User *hash_table[]) {
+    if (!hash_table) {
+        return;
+    }
+
     for (int i = 0; i < HASHTABLE_SIZE; ++i) {
         User *current = hash_table[i];
+
         while (current) {
             User *temp = current;
-            current = current->next;
+            current = get_next_user(current);
             free_user(temp);
         }
+
+        hash_table[i] = NULL;
     }
 }

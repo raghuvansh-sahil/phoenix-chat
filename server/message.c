@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <time.h>
+#include <errno.h>
 
 void log_event(const char *event_type, const char *message) {
     FILE *log_file = fopen("server.log", "a");

@@ -5,7 +5,7 @@
 #include <netdb.h>
 
 #include "utils.h"
-#include "user_handler.h"
+#include "user.h"
 
 #define PORT "21111"
 #define IPADDRESS "192.168.31.129"
@@ -52,7 +52,7 @@ User *connect_to_server(int *client_socket) {
 
     char buf[1024];
     receive_message(client, buf, sizeof buf); 
-    printf("%s", buf);
+    printf("%s\n", buf);
 
     return client;
 }
