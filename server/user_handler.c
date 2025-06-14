@@ -7,37 +7,68 @@
 #include "utils.h"
 #include "hashing.h"
 #include "message.h"
+#include "bcrypt.h"
 #include "user_handler.h"
 
 static void login_user(const Command *command, User *user, User *users[]) {
     const char *username = get_second_token(command);
-    const char *password = get_third_token(command);
     int socket = get_socket(user);
 
-    if (!username || !password) {
-        const char *msg = "Invalid login format. Usage: /login <username> <password>.";
-        send_message(user, msg, strlen(msg) + 1);
+    User *temp = find_user_by_socket(users, socket);
+    if (temp) {
+        const char *message = "You are already logged in.";
+        send_message(user, message, strlen(message) + 1);
         return;
     }
 
+    if (!username) {
+        const char *message = "Invalid login format. Usage: /login <username>.";
+        send_message(user, message, strlen(message) + 1);
+        return;
+    }
+
+    char password[61];
     User *logging_in = find_user_by_username(users, username);
     if (!logging_in) {
         const char *message = "Login failed: User not registered.";
         send_message(user, message, strlen(message) + 1);
         return;
     }
+    if (is_logged_in(logging_in)) {
+        const char *message = "Login failed: This user is already logged in elsewhere.";
+        send_message(user, message, strlen(message) + 1);
+        return;
+    }
+        
+    const char *message = "Enter password:";
+    send_message(user, message, strlen(message) + 1);
 
-    if (strcmp(get_password(logging_in), password) == 0) {
+    ssize_t bytes_received = receive_message(user, password, sizeof password);
+    if (bytes_received <= 0) {
+        const char *message = "Failed to receive password.";
+        send_message(user, message, strlen(message) + 1);
+        return;
+    }
+
+    int matched = bcrypt_checkpw(password, get_password(logging_in));
+    if (matched == -1) {
+        perror("[SERVER] bcrypt_checkpw");
+
+        const char *message = "Server error during login.";
+        send_message(user, message, strlen(message) + 1);
+        return;
+    }
+    else if (matched > 0) {
+        const char *message = "Login failed: Incorrect password entered!";
+        send_message(user, message, strlen(message) + 1);
+        return;
+    }
+    else if (matched == 0) {
         toggle_login_status(logging_in);
         set_socket(logging_in, socket);
 
         const char *message = "Login successful. Welcome!";
         send_message(user, message, strlen(message) + 1);
-    }
-    else {
-        const char *message = "Login failed: Incorrect password entered!";
-        send_message(user, message, strlen(message) + 1);
-        return;
     }
 
     char log[1024];

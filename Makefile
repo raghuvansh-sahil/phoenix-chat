@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -Wextra  -Icommon -Iserver -Iclient
+CFLAGS = -Wall -Wextra  -Icommon -Iserver -Iclient -Ilibbcrypt
 LDFLAGS =
 
 COMMON_SRCS = common/user.c common/utils.c
@@ -19,12 +19,17 @@ CLIENT_EXEC = client_app
 
 .PHONY: all server client clean
 
-all: server client
+all: libbcrypt server client
+
+libbcrypt: libbcrypt/bcrypt.a
+
+libbcrypt/bcrypt.a:
+	@$(MAKE) -s -C libbcrypt
 
 server: $(SERVER_EXEC)
 
-$(SERVER_EXEC): $(SERVER_OBJS)
-	@$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+$(SERVER_EXEC): $(SERVER_OBJS) libbcrypt/bcrypt.a
+	@$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) 
 
 client: $(CLIENT_EXEC)
 
@@ -36,3 +41,4 @@ $(CLIENT_EXEC): $(CLIENT_OBJS)
 
 clean:
 	@rm -f $(SERVER_OBJS) $(SERVER_EXEC) $(CLIENT_OBJS) $(CLIENT_EXEC)
+	@$(MAKE) -s -C libbcrypt 

@@ -8,12 +8,33 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <termios.h>
 
 #include "utils.h"
 #include "client.h"
 
 #define PORT "21111"
 #define IPADDRESS "192.168.31.129"
+
+static void prompt_password(char *buf, size_t size) {
+    struct termios oldt;
+    struct termios newt;
+
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+    if (fgets(buf, size, stdin) == NULL) {
+        buf[0] = '\0'; 
+    } 
+    else {
+        buf[strcspn(buf, "\n")] = '\0';
+    }
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    printf("\n");
+}
 
 User *connect_to_server(int *server_socket) {
     struct addrinfo hints, *servinfo, *p;
@@ -93,13 +114,26 @@ void poll_server_messages(User *client) {
 
     if (FD_ISSET(socket, &read_fds)) {
         char buf[1048];
-        int bytesReceived = receive_message(client, buf, sizeof buf);
+        int bytes_received;
+
+        while (1) {
+            bytes_received = receive_message(client, buf, sizeof buf);
+            if (bytes_received <= 0) {
+                if (bytes_received == 0) {
+                    printf("[INFO] Server closed connection.\n");
+                } 
+                break;
+            }
         
-        if (bytesReceived > 0) {
             printf("%s\n", buf);
-        } 
-        else if (bytesReceived == 0) {
-            printf("[INFO] Server closed connection.\n");
-        } 
+
+            if (strcmp(buf, "Enter password:") == 0) {
+                prompt_password(buf, sizeof buf);
+                send_message(client, buf, strlen(buf) + 1);
+                continue;
+            }
+
+            break;
+        }
     }
 }
